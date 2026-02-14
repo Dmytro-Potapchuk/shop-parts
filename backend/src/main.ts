@@ -1,27 +1,44 @@
 // src/main.ts
+
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config'; // <<< DODAJ IMPORT ConfigService
+import { ConfigService } from '@nestjs/config';
 
-async function bootstrap() {
+import { AppModule } from './app.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService); // <<< POBIERZ INSTANCJĘ ConfigService
+  const logger = new Logger('Bootstrap');
+  const configService = app.get(ConfigService);
 
-  // Ustawienia CORS - odczytywanie origin ze zmiennej środowiskowej
+  const port = configService.get<number>('PORT', 3001);
   const frontendUrl = configService.get<string>(
     'FRONTEND_URL',
     'http://localhost:5173',
-  ); // Domyślnie 8080, jeśli zmienna nieustawiona
-  app.enableCors({
-    origin: frontendUrl,
-    methods: 'GET,POST,PUT,DELETE',
-    allowedHeaders: 'Content-Type, Authorization',
-  });
-  console.log(`[CORS] Zezwolono na żądania z origin: ${frontendUrl}`);
+  );
 
-  // Globalny ValidationPipe - bez zmian, jest poprawny
+  /*
+   * ===============================
+   * CORS
+   * ===============================
+   */
+  app.enableCors({
+    origin: [frontendUrl],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
+  logger.log(`CORS enabled for: ${frontendUrl}`);
+
+  /*
+   * ===============================
+   * Global Pipes
+   * ===============================
+   */
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -33,52 +50,54 @@ async function bootstrap() {
     }),
   );
 
-  // Konfiguracja Swaggera - odczytywanie ustawień ze zmiennych środowiskowych
-  const swaggerApiTitle = configService.get<string>(
-    'SWAGGER_API_TITLE',
-    'Sklep Części AutoMax API',
-  );
-  const swaggerApiDesc = configService.get<string>(
-    'SWAGGER_API_DESC',
-    'Dokumentacja API dla sklepu z częściami samochodowymi AutoMax',
-  );
-  const swaggerApiVersion = configService.get<string>(
-    'SWAGGER_API_VERSION',
-    '1.0',
-  );
-  const swaggerApiDocsPath = configService.get<string>(
-    'SWAGGER_API_DOCS_PATH',
-    'api-docs',
-  );
+  /*
+   * ===============================
+   * Global Interceptors & Filters
+   * ===============================
+   */
+  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
-  const config = new DocumentBuilder()
-    .setTitle(swaggerApiTitle)
-    .setDescription(swaggerApiDesc)
-    .setVersion(swaggerApiVersion)
-    .addTag('parts', 'Operacje na częściach samochodowych')
-    .addTag('users', 'Operacje na użytkownikach i autentykacja')
-    .addTag('Status Aplikacji', 'Ogólny status i informacje o API')
+  /*
+   * ===============================
+   * Swagger
+   * ===============================
+   */
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle(configService.get<string>('SWAGGER_API_TITLE', 'Parts Shop API'))
+    .setDescription(
+      configService.get<string>(
+        'SWAGGER_API_DESC',
+        'REST API for car parts shop with JWT authentication and RBAC.',
+      ),
+    )
+    .setVersion(configService.get<string>('SWAGGER_API_VERSION', '1.0'))
     .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Wprowadź token JWT',
-        in: 'header',
+        description: 'Enter JWT access token',
       },
-      'JWT-auth',
+      'access-token',
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(swaggerApiDocsPath, app, document);
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup(
+    configService.get<string>('SWAGGER_API_DOCS_PATH', 'api-docs'),
+    app,
+    document,
+  );
 
-  const port = configService.get<number>('PORT', 3001); // <<< Odczytaj port z ConfigService
   await app.listen(port);
-  console.log(`🚀 Serwer działa na http://localhost:${port}`);
-  console.log(
-    `📚 Dokumentacja Swagger UI dostępna pod http://localhost:${port}/${swaggerApiDocsPath}`,
+
+  logger.log(`🚀 Server running on http://localhost:${port}`);
+  logger.log(
+    `📚 Swagger: http://localhost:${port}/${configService.get<string>(
+      'SWAGGER_API_DOCS_PATH',
+      'api-docs',
+    )}`,
   );
 }
 
