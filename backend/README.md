@@ -2,18 +2,26 @@
 
 ## Zespół Projektowy
 - Dmytro Potapchuk
-- Jakub Laskowski
 
 ## Opis Projektu
-Backend API dla internetowego sklepu motoryzacyjnego "AutoMax". System zarządza produktami (częściami samochodowymi), użytkownikami, procesem składania zamówień oraz autentykacją. Zbudowany przy użyciu frameworka NestJS.
+Backend API dla internetowego sklepu motoryzacyjnego. System zarządza produktami (częściami samochodowymi), użytkownikami, procesem składania zamówień oraz autentykacją. Zbudowany przy użyciu frameworka NestJS.
 
 ## Główne Funkcjonalności
-- Rejestracja nowych użytkowników.
-- Autentykacja użytkowników oparta na tokenach JWT (JSON Web Tokens).
-- Kontrola dostępu oparta na rolach (administrator, klient).
-- Operacje CRUD (Create, Read, Update, Delete) na częściach samochodowych.
-- Symulacja procesu zakupu części i zarządzanie stanem magazynowym.
-- Automatycznie generowana dokumentacja API (Swagger/OpenAPI).
+- Rejestrację i logowanie użytkowników
+- Autentykację opartą na JWT
+- Obsługę **Access Token + Refresh Token**
+- Kontrolę dostępu opartą na rolach (RBAC)
+- Operacje CRUD na częściach
+- Symulację zakupu części
+- Zarządzanie stanem magazynowym
+- Automatycznie generowaną dokumentację API (Swagger)
+- Testy jednostkowe i E2E
+- Automatyczny pipeline CI/CD
+
+Projekt przygotowany zgodnie z dobrymi praktykami bezpieczeństwa i testowania.
+
+# 🏗 Architektura
+Projekt oparty na modularnej architekturze NestJS:
 
 ## Technologie
 - **Framework:** NestJS
