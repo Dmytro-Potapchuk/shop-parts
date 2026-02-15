@@ -1,6 +1,6 @@
 // src/main.ts
 
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -8,8 +8,9 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { RolesGuard } from './auth/roles.guard';
 
-async function bootstrap(): Promise<void> {
+export async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
   const configService = app.get(ConfigService);
@@ -57,12 +58,20 @@ async function bootstrap(): Promise<void> {
    */
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useGlobalFilters(new GlobalExceptionFilter());
+  /*
+   * ===============================
+   * Rejestracja Guardów globalnie
+   * ===============================
+   */
+  const reflector = app.get(Reflector);
+  app.useGlobalGuards(new RolesGuard(reflector));
 
   /*
    * ===============================
    * Swagger
    * ===============================
    */
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle(configService.get<string>('SWAGGER_API_TITLE', 'Parts Shop API'))
     .setDescription(
@@ -101,4 +110,6 @@ async function bootstrap(): Promise<void> {
   );
 }
 
-bootstrap();
+if (require.main === module) {
+  bootstrap();
+}

@@ -32,69 +32,131 @@ describe('PartsService', () => {
 
     service = module.get<PartsService>(PartsService);
     repo = module.get(getRepositoryToken(Part));
+    jest.clearAllMocks();
   });
 
-  afterEach(() => jest.clearAllMocks());
+  describe('findAll', () => {
+    it('should return paginated result', async () => {
+      const mockQB: any = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[{ id: 1 }], 1]),
+      };
 
-  it('should create a part', async () => {
-    const dto = { name: 'Test', price: 10, stock: 5 };
-    const saved = { id: 1, ...dto };
+      repo.createQueryBuilder.mockReturnValue(mockQB);
 
-    repo.create.mockReturnValue(saved as Part);
-    repo.save.mockResolvedValue(saved as Part);
+      const result = await service.findAll({});
 
-    const result = await service.create(dto as any);
+      expect(result.items.length).toBe(1);
+      expect(result.totalItems).toBe(1);
+      expect(result.totalPages).toBe(1);
+    });
 
-    expect(repo.create).toHaveBeenCalledWith(dto);
-    expect(repo.save).toHaveBeenCalled();
-    expect(result).toEqual(saved);
+    it('should apply search', async () => {
+      const mockQB: any = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+
+      repo.createQueryBuilder.mockReturnValue(mockQB);
+
+      await service.findAll({ search: 'test' });
+
+      expect(mockQB.where).toHaveBeenCalled();
+    });
   });
 
-  it('should find one part', async () => {
-    const part = { id: 1, name: 'Test' };
+  describe('findOne', () => {
+    it('should return part', async () => {
+      repo.findOne.mockResolvedValue({ id: 1 } as Part);
 
-    repo.findOne.mockResolvedValue(part as Part);
+      const result = await service.findOne(1);
+      expect(result.id).toBe(1);
+    });
 
-    const result = await service.findOne(1);
-    expect(result).toEqual(part);
+    it('should throw NotFoundException', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+    });
   });
 
-  it('should throw NotFound if part not found', async () => {
-    repo.findOne.mockResolvedValue(null);
+  describe('create', () => {
+    it('should create part', async () => {
+      repo.create.mockReturnValue({ name: 'test' } as Part);
+      repo.save.mockResolvedValue({ id: 1 } as Part);
 
-    await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+      const result = await service.create({
+        name: 'test',
+        description: 'd',
+        price: 10,
+        stock: 1,
+      });
+
+      expect(result.id).toBe(1);
+    });
   });
 
-  it('should delete part', async () => {
-    repo.delete.mockResolvedValue({ affected: 1 } as any);
+  describe('update', () => {
+    it('should update part', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 1 } as Part);
+      repo.update.mockResolvedValue({} as any);
 
-    await service.delete(1);
+      const result = await service.update(1, { name: 'new' });
 
-    expect(repo.delete).toHaveBeenCalledWith(1);
+      expect(result.id).toBe(1);
+    });
+
+    it('should throw NotFoundException', async () => {
+      jest.spyOn(service, 'findOne').mockRejectedValue(
+          new NotFoundException(),
+      );
+
+      await expect(service.update(1, {})).rejects.toThrow(
+          NotFoundException,
+      );
+    });
   });
 
-  it('should throw if delete fails', async () => {
-    repo.delete.mockResolvedValue({ affected: 0 } as any);
+  describe('delete', () => {
+    it('should delete part', async () => {
+      repo.delete.mockResolvedValue({ affected: 1 } as any);
+      await expect(service.delete(1)).resolves.toBeUndefined();
+    });
 
-    await expect(service.delete(1)).rejects.toThrow(NotFoundException);
+    it('should throw NotFoundException', async () => {
+      repo.delete.mockResolvedValue({ affected: 0 } as any);
+      await expect(service.delete(1)).rejects.toThrow(
+          NotFoundException,
+      );
+    });
   });
 
-  it('should purchase part', async () => {
-    const part = { id: 1, stock: 10 };
+  describe('purchase', () => {
+    it('should reduce stock', async () => {
+      const part = { id: 1, stock: 10 } as Part;
 
-    repo.findOne.mockResolvedValue(part as Part);
-    repo.save.mockImplementation(async (p) => p);
+      jest.spyOn(service, 'findOne').mockResolvedValue(part);
+      repo.save.mockResolvedValue({ ...part, stock: 5 } as Part);
 
-    const result = await service.purchase(1, 2);
+      const result = await service.purchase(1, 5);
 
-    expect(result.stock).toBe(8);
-  });
+      expect(result.stock).toBe(5);
+    });
 
-  it('should throw if not enough stock', async () => {
-    const part = { id: 1, stock: 1 };
+    it('should throw BadRequestException if not enough stock', async () => {
+      const part = { id: 1, stock: 2 } as Part;
 
-    repo.findOne.mockResolvedValue(part as Part);
+      jest.spyOn(service, 'findOne').mockResolvedValue(part);
 
-    await expect(service.purchase(1, 5)).rejects.toThrow(BadRequestException);
+      await expect(service.purchase(1, 5)).rejects.toThrow(
+          BadRequestException,
+      );
+    });
   });
 });

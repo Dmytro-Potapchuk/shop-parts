@@ -21,12 +21,18 @@ import { CreatePartDto } from './dto/create-part.dto';
 import { UpdatePartDto } from './dto/update-part.dto';
 import { PaginatedPartsResponse, PartsQueryDto } from './dto/parts-query.dto';
 
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/roles.enum';
+import { RolesGuard } from '../auth/roles.guard';
+
 @ApiTags('parts')
 @Controller('parts')
 export class PartsController {
   constructor(private readonly partsService: PartsService) {}
 
-  // ---------------- PUBLIC ----------------
+  // ==============================
+  // PUBLIC
+  // ==============================
 
   @Get()
   @ApiOperation({
@@ -43,20 +49,24 @@ export class PartsController {
     return this.partsService.findOne(id);
   }
 
-  // ---------------- PROTECTED ----------------
+  // ==============================
+  // ADMIN ONLY
+  // ==============================
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
   @Post()
-  @ApiOperation({ summary: 'Stwórz nową część (wymaga logowania)' })
+  @ApiOperation({ summary: 'Stwórz nową część (admin only)' })
   create(@Body() createPartDto: CreatePartDto): Promise<Part> {
     return this.partsService.create(createPartDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
   @Put(':id')
-  @ApiOperation({ summary: 'Aktualizuj część (wymaga logowania)' })
+  @ApiOperation({ summary: 'Aktualizuj część (admin only)' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePartDto: UpdatePartDto,
@@ -64,19 +74,25 @@ export class PartsController {
     return this.partsService.update(id, updatePartDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth('JWT-auth')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Usuń część (wymaga logowania)' })
+  @ApiOperation({ summary: 'Usuń część (admin only)' })
   async delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.partsService.delete(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  // ==============================
+  // ADMIN + CLIENT
+  // ==============================
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN, Role.CLIENT)
   @ApiBearerAuth('JWT-auth')
   @Post(':id/purchase')
-  @ApiOperation({ summary: 'Zakup część (wymaga logowania)' })
+  @ApiOperation({ summary: 'Zakup część (admin & client)' })
   purchase(
     @Param('id', ParseIntPipe) id: number,
     @Body('quantity', ParseIntPipe) quantity: number,

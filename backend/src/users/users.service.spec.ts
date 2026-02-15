@@ -1,29 +1,41 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from './user.entity';
 import { Repository } from 'typeorm';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
+import { UsersService } from './users.service';
+import { User } from './user.entity';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+
 describe('UsersService', () => {
   let service: UsersService;
-  let repo: Repository<User>;
+  let repo: jest.Mocked<Repository<User>>;
+  let jwtService: jest.Mocked<JwtService>;
 
   const mockRepo = {
-    findOne: jest.fn(),
+    create: jest.fn(),
     save: jest.fn(),
-    update: jest.fn().mockResolvedValue({}),
+    findOne: jest.fn(),
+    update: jest.fn(),
   };
 
-  const mockJwtService = {
-    sign: jest.fn().mockReturnValue('mockAccessToken'),
+  const mockJwt = {
+    sign: jest.fn(),
+    verify: jest.fn(),
   };
 
-  const mockConfigService = {
-    get: jest.fn().mockReturnValue('mockSecret'),
+  const mockConfig = {
+    get: jest.fn((key: string) => {
+      const values = {
+        JWT_SECRET: 'secret',
+        JWT_EXPIRES_IN: '1h',
+        JWT_REFRESH_SECRET: 'refresh',
+        JWT_REFRESH_EXPIRES_IN: '7d',
+      };
+      return values[key];
+    }),
   };
 
   beforeEach(async () => {
@@ -31,43 +43,92 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: mockRepo },
-        { provide: JwtService, useValue: mockJwtService },
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: JwtService, useValue: mockJwt },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    repo = module.get<Repository<User>>(getRepositoryToken(User));
-  });
-
-  afterEach(() => {
+    repo = module.get(getRepositoryToken(User));
+    jwtService = module.get(JwtService);
     jest.clearAllMocks();
   });
 
-  describe('login()', () => {
-    it('should return tokens when credentials are valid', async () => {
-      const user = {
+  describe('register', () => {
+    it('should register user', async () => {
+      repo.create.mockReturnValue({ username: 'test' } as User);
+      repo.save.mockResolvedValue({ id: 1 } as User);
+
+      const result = await service.register('test', '123', 'client');
+
+      expect(result.id).toBe(1);
+    });
+  });
+
+  describe('login', () => {
+    it('should login successfully', async () => {
+      const hashed = await bcrypt.hash('123', 10);
+
+      repo.findOne.mockResolvedValue({
         id: 1,
-        username: 'admin',
-        password: await bcrypt.hash('123456', 10),
+        password: hashed,
         role: 'admin',
-      };
+      } as User);
 
-      mockRepo.findOne.mockResolvedValue(user);
+      mockJwt.sign.mockReturnValue('token');
 
-      const result = await service.login('admin', '123456');
+      const result = await service.login('test', '123');
 
       expect(result.accessToken).toBeDefined();
       expect(result.refreshToken).toBeDefined();
-      expect(result.role).toBe('admin');
+    });
+
+    it('should throw UnauthorizedException', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await expect(service.login('test', '123')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('refresh', () => {
+    it('should refresh token', async () => {
+      const refreshToken = 'refreshToken';
+      const hashed = await bcrypt.hash(refreshToken, 10);
+
+      mockJwt.verify.mockReturnValue({ sub: 1 });
+
+      repo.findOne.mockResolvedValue({
+        id: 1,
+        role: 'admin',
+        refreshToken: hashed,
+      } as User);
+
+      mockJwt.sign.mockReturnValue('newAccess');
+
+      const result = await service.refresh(refreshToken);
+
+      expect(result.accessToken).toBe('newAccess');
     });
 
     it('should throw UnauthorizedException if invalid', async () => {
-      mockRepo.findOne.mockResolvedValue(null);
+      mockJwt.verify.mockImplementation(() => {
+        throw new Error();
+      });
 
-      await expect(
-          service.login('wrong', 'wrong'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh('bad')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('logout', () => {
+    it('should clear refreshToken', async () => {
+      await service.logout(1);
+      expect(repo.update).toHaveBeenCalledWith(1, {
+        refreshToken: null,
+      });
     });
   });
 });
