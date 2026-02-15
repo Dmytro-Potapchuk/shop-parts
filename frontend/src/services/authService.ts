@@ -1,12 +1,13 @@
-
 import axios from 'axios';
 import { BASE_API_URL } from '../config';
 import { User } from '../types.tsx';
 
 const AUTH_API_BASE = `${BASE_API_URL}/users`;
 
-interface LoginResponse extends User {
-    token: string;
+interface LoginResponse {
+    accessToken: string;
+    refreshToken: string;
+    role: User['role'];
 }
 
 interface RegisterPayload {
@@ -14,45 +15,64 @@ interface RegisterPayload {
     password: string;
 }
 
-type RegisterResponse = Omit<User, 'password'>
+type RegisterResponse = Omit<User, 'password'>;
 
-
-export const login = async (username: string, password: string): Promise<LoginResponse> => {
+export const login = async (
+    username: string,
+    password: string
+): Promise<LoginResponse> => {
     try {
-        const response = await axios.post<LoginResponse>(`${AUTH_API_BASE}/login`, { username, password });
-        if (response.data.token && response.data.role) {
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('role', response.data.role); // Zapisujemy rolę
-        }
+        const response = await axios.post<LoginResponse>(
+            `${AUTH_API_BASE}/login`,
+            { username, password }
+        );
+
+        const { accessToken, refreshToken, role } = response.data;
+
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('role', role);
+
         return response.data;
-    } catch (error) {
+    } catch (error: unknown) {
         if (axios.isAxiosError(error) && error.response) {
-            throw error.response.data; // Przekaż dalej obiekt błędu z backendu
+            const message =
+                typeof error.response.data?.message === 'string'
+                    ? error.response.data.message
+                    : 'Błąd logowania';
+
+            throw new Error(message);   // ✅ TERAZ zawsze rzucamy Error
         }
-        throw new Error('An unexpected error occurred during login.');
+
+        throw new Error('Nieoczekiwany błąd podczas logowania.');
     }
 };
 
-
-export const register = async (userData: RegisterPayload): Promise<RegisterResponse> => {
+export const register = async (
+    userData: RegisterPayload
+): Promise<RegisterResponse> => {
     try {
-        const response = await axios.post<RegisterResponse>(`${AUTH_API_BASE}/register`, userData);
-        return response.data; // Backend powinien zwrócić użytkownika bez hasła
+        const response = await axios.post<RegisterResponse>(
+            `${AUTH_API_BASE}/register`,
+            userData
+        );
+        return response.data;
     } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
-            // Przekaż dalej obiekt błędu z backendu, jeśli istnieje
-            // Backend może zwrócić np. { message: "Użytkownik już istnieje" }
-            throw error.response.data.message || error.response.data || new Error('Błąd rejestracji. Spróbuj ponownie.');
+            throw (
+                error.response.data.message ||
+                error.response.data ||
+                new Error('Błąd rejestracji. Spróbuj ponownie.')
+            );
         }
         throw new Error('Wystąpił nieoczekiwany błąd podczas rejestracji.');
     }
 };
 
-
 export const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('role');
-    // Rozważ dispatch eventu lub inną metodę globalnej notyfikacji o wylogowaniu, jeśli potrzebne
 };
 
 export const getRole = (): User['role'] | null => {
@@ -60,9 +80,9 @@ export const getRole = (): User['role'] | null => {
 };
 
 export const getToken = (): string | null => {
-    return localStorage.getItem('token');
+    return localStorage.getItem('accessToken');
 };
 
 export const isAuthenticated = (): boolean => {
-    return !!getToken(); // Proste sprawdzenie, czy token istnieje
+    return !!getToken();
 };

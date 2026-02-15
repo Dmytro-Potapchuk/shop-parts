@@ -16,17 +16,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError(null);
         setIsLoading(true);
+
         try {
             const loggedInUser = await login(username, password);
             onLoginSuccess(loggedInUser.role);
             navigate(loggedInUser.role === "admin" ? "/admin" : "/parts");
-        } catch (err: any) {
-            const errorMessage = typeof err === 'string' ? err : (err?.message || "Błąd logowania. Sprawdź dane.");
-            setError(errorMessage);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Błąd logowania. Sprawdź dane.");
+            }
+
             console.error("Błąd logowania:", err);
         } finally {
             setIsLoading(false);

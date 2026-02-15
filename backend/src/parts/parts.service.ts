@@ -1,15 +1,15 @@
 // Plik: backend/src/parts/parts.service.ts
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm'; // Importuj Like
+import { Repository } from 'typeorm'; // Importuj Like
 import { Part } from './parts.entity';
 import { CreatePartDto } from './dto/create-part.dto'; // Załóżmy, że to DTO już istnieje
 import { UpdatePartDto } from './dto/update-part.dto'; // Załóżmy, że to DTO już istnieje
-import { PartsQueryDto, PaginatedPartsResponse } from './dto/parts-query.dto'; // Importuj nowe DTO i interfejs
+import { PaginatedPartsResponse, PartsQueryDto } from './dto/parts-query.dto'; // Importuj nowe DTO i interfejs
 
 @Injectable()
 export class PartsService {

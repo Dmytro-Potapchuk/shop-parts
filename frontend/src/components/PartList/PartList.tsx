@@ -5,10 +5,10 @@ import {
     purchasePart,
     FetchPartsParams,
     PaginatedPartsResponse
-} from "../../services"; // Upewnij się, że ścieżka jest poprawna
-import { Part, User } from "../../types"; // Upewnij się, że ścieżka i typy są poprawne
-import { getRole } from "../../services"; // Upewnij się, że ścieżka jest poprawna
-import styles from "../styles/PartsList.module.css"; // Upewnij się, że ścieżka jest poprawna
+} from "../../services";
+import { Part, User } from "../../types";
+import { getRole } from "../../services";
+import styles from '../styles/PartsList.module.css';
 
 interface PartsListProps {
     partsUpdateTrigger: number;

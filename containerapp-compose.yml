@@ -1,0 +1,25 @@
+version: '1.0'
+services:
+  backend:
+    image: keyn1990/parts-shop-backend:v1
+    environment:
+      DB_HOST: "db"                       # локально ми можемо залишити db, на Azure треба змінити на хост керованої MySQL
+      DB_PORT: "3306"
+      DB_USER: "sklep_user"
+      DB_PASS: "bardzo_bezpieczne_haslo_db"
+      DB_NAME: "sklep_czesci_db"
+      NODE_ENV: "production"
+      PORT: "3000"
+      TYPEORM_SYNCHRONIZE: "false"
+      JWT_SECRET: "TWOJ_BARDZO_SILNY_SEKRET_JWT_DOCKER_COMPOSE_ZMIEN_TO_KONIECZNIE"
+      JWT_EXPIRES_IN: "1h"
+      FRONTEND_URL: "http://localhost:8080"
+      SWAGGER_API_DOCS_PATH: "/api-docs"
+
+  frontend:
+    image: keyn1990/parts-shop-frontend:v1
+    environment:
+      VITE_API_URL: "http://backend:3000"  # після деплою на Azure змінити на URL backend
+
+  adminer:
+    image: adminer:latest

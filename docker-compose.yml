@@ -21,10 +21,6 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - FRONTEND_URL=${FRONTEND_URL}
       - SWAGGER_API_DOCS_PATH=${SWAGGER_API_DOCS_PATH}
-      # Opcjonalne zmienne dla Swaggera z main.ts
-      # - SWAGGER_API_TITLE=${SWAGGER_API_TITLE}
-      # - SWAGGER_API_DESC=${SWAGGER_API_DESC}
-      # - SWAGGER_API_VERSION=${SWAGGER_API_VERSION}
     depends_on:
       - db
     networks:
@@ -34,9 +30,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args: # <<< DODANE: Przekazywanie argumentów do budowania obrazu frontendu
-        # VITE_API_URL: http://localhost:3000 # Dla testów lokalnych, jeśli backend jest na tym porcie
-        # Lub odczytaj z .env:
+      args:
         VITE_API_URL: ${VITE_API_URL_FOR_COMPOSE:-http://localhost:3000}
     container_name: parts-shop-frontend
     restart: unless-stopped
@@ -60,6 +54,17 @@ services:
       - "33061:3306"
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  adminer:
+    image: adminer:latest
+    container_name: parts-shop-adminer
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      - db
     networks:
       - app-network
 
